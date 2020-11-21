@@ -13,6 +13,7 @@ import time
 import cv2
 import os
 
+
 def detect_and_predict_mask(frame, faceNet, maskNet):
 	# grab the dimensions of the frame and then construct a blob
 	# from it
@@ -133,9 +134,12 @@ while True:
 		cv2.putText(frame, label, (startX, startY - 10),
 			cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 2)
 		cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)
+		frame[startY:endY, startX:endX] = cv2.GaussianBlur(frame[startY:endY, startX:endX], (99,99), 30)
+
+		
 
 	# show the output frame
-	cv2.imshow("Frame", frame)
+	cv2.imshow("IOTP_mask_detector", frame)
 	key = cv2.waitKey(1) & 0xFF
 
 	# if the `q` key was pressed, break from the loop
