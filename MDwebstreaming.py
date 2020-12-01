@@ -107,7 +107,8 @@ def video_feed():
 
 # check to see if this is the main thread of execution
 if __name__ == '__main__':
-	t = threading.Thread(target=detect_motion, args=32)
+	t = threading.Thread(target=detect_motion, args=(
+		32,))
 	t.daemon = True
 	t.start()
 	app.run(host="0.0.0.0", port=8000, threaded=True)
