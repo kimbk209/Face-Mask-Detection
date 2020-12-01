@@ -107,6 +107,7 @@ maskNet = load_model(args["model"])
 outputFrame = None
 app = Flask(__name__)
 lock = threading.Lock()
+count=0
 
 # initialize the video stream and allow the camera sensor to warm up
 print("[INFO] starting video stream...")
@@ -118,8 +119,8 @@ def index():
 	# return the rendered template
 	return render_template("index.html")
 
-def screenstream():
-    global vs, outputFrame, lock
+def screenstream(framecount):
+    global vs, outputFrame, lock, count
     # loop over the frames from the video stream
     while True:
         # grab the frame from the threaded video stream and resize it
@@ -127,7 +128,6 @@ def screenstream():
         frame = vs.read()
         frame = imutils.resize(frame, width=400)
         timestamp = datetime.datetime.now()
-
         cv2.putText(frame, timestamp.strftime(
 			"%A %d %B %Y %I:%M:%S%p"), (10, frame.shape[0] - 10),
 			cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 0, 255), 1)
@@ -142,15 +142,15 @@ def screenstream():
             # unpack the bounding box and predictions
             (startX, startY, endX, endY) = box
             (mask, withoutMask) = pred
-
             # determine the class label and color we'll use to draw
             # the bounding box and text
             label = "Mask" if mask > withoutMask else "No Mask"
             color = (0, 255, 0) if label == "Mask" else (0, 0, 255)
-
+            if label == "No Mask" and count%framecount==0:
+                print("No MASK")
+            count+=1
             # include the probability in the label
             label = "{}: {:.2f}%".format(label, max(mask, withoutMask) * 100)
-
             # display the label and bounding box rectangle on the output
             # frame
             cv2.putText(frame, label, (startX, startY - 10),
@@ -159,7 +159,7 @@ def screenstream():
             #frame[startY:endY, startX:endX] = cv2.GaussianBlur(frame[startY:endY, startX:endX], 5, 5, 0)
         with lock:
             outputFrame = frame.copy()
-
+            
 def generate():
 	# grab global references to the output frame and lock variables
 	global outputFrame, lock
@@ -190,7 +190,7 @@ def video_feed():
 # check to see if this is the main thread of execution
 if __name__ == '__main__':
 	# construct the argument parser and parse command line arguments
-	t = threading.Thread(target=screenstream)
+	t = threading.Thread(target=screenstream, args = (100,))
 	t.daemon = True
 	t.start()
 	app.run(host="0.0.0.0", port=8000, threaded=True)
