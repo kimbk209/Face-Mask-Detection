@@ -13,30 +13,6 @@ import time
 import cv2
 import os
 
-def anonymize_face_pixelate(image, blocks=10):
-	# divide the input image into NxN blocks
-	(h, w) = image.shape[:2]
-	xSteps = np.linspace(0, w, blocks + 1, dtype="int")
-	ySteps = np.linspace(0, h, blocks + 1, dtype="int")
-	# loop over the blocks in both the x and y direction
-	for i in range(1, len(ySteps)):
-		for j in range(1, len(xSteps)):
-			# compute the starting and ending (x, y)-coordinates
-			# for the current block
-			startX = xSteps[j - 1]
-			startY = ySteps[i - 1]
-			endX = xSteps[j]
-			endY = ySteps[i]
-			# extract the ROI using NumPy array slicing, compute the
-			# mean of the ROI, and then draw a rectangle with the
-			# mean RGB values over the ROI in the original image
-			roi = image[startY:endY, startX:endX]
-			(B, G, R) = [int(x) for x in cv2.mean(roi)[:3]]
-			cv2.rectangle(image, (startX, startY), (endX, endY),
-				(B, G, R), -1)
-	# return the pixelated blurred image
-	return image
-
 def detect_and_predict_mask(frame, faceNet, maskNet):
 	# grab the dimensions of the frame and then construct a blob
 	# from it
@@ -126,10 +102,6 @@ print("[INFO] starting video stream...")
 vs = VideoStream(src=0).start()
 time.sleep(2.0)
 
-wholecount=0
-maskcount=0
-nomaskcount=0
-
 # loop over the frames from the video stream
 while True:
 	# grab the frame from the threaded video stream and resize it
@@ -161,7 +133,7 @@ while True:
 		cv2.putText(frame, label, (startX, startY - 10),
 			cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 2)
 		cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)
-		frame[startY:endY, startX:endX] = anonymize_face_pixelate(frame[startY:endY, startX:endX])
+		#frame[startY:endY, startX:endX] = cv2.GaussianBlur(frame[startY:endY, startX:endX], 5, 5, 0)
 
 		
 
