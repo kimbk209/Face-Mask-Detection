@@ -1,25 +1,29 @@
 import pymysql.cursors
-import datetime
 
-now = datetime.datetime.now()
-conn = pymysql.connect(host='localhost',
+def print_all():
+    conn = pymysql.connect(host='localhost',
                      port=3306,
                      user='user',
                      passwd='passwd',
                      db='db',
                      charset='utf8')
-
-def print_all():
     try:
         with conn.cursor() as cursor:
             sql = 'SELECT * FROM test_table'
             cursor.execute(sql)
-            for result in cursor.fetchall():
-                print(result[0], result[1], result[2])
+            #for result in cursor.fetchall():
+            #    print(result[0], result[1], result[2])
+            return cursor.fetchall()
     finally:
-        pass
+        conn.close()
 
 def print_one(idx):
+    conn = pymysql.connect(host='localhost',
+                     port=3306,
+                     user='user',
+                     passwd='passwd',
+                     db='db',
+                     charset='utf8')
     try:
         with conn.cursor() as cursor:
             sql = 'SELECT * FROM test_table WHERE idx=%s'
@@ -27,19 +31,24 @@ def print_one(idx):
             result = cursor.fetchone()
             print(result)
     finally:
-        pass
+        conn.close()
 
 def insert_table(time,masktxt):
+    conn = pymysql.connect(host='localhost',
+                     port=3306,
+                     user='user',
+                     passwd='passwd',
+                     db='db',
+                     charset='utf8')
     try:
         with conn.cursor() as cursor:
             sql = 'INSERT INTO test_table (datetime, no_mask) VALUES (%s, %s)'
             cursor.execute(sql, (time, masktxt))
             conn.commit()
     finally:
-        pass
-
+        conn.close()
 
 #insert_table(now, 'no')
-print_all()
+#print_all()
 
 conn.close()

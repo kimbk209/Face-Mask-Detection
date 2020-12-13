@@ -19,6 +19,53 @@ from flask import render_template
 import threading
 import datetime
 
+import pymysql.cursors
+
+def print_all():
+    conn = pymysql.connect(host='localhost',
+                     port=3306,
+                     user='user',
+                     passwd='passwd',
+                     db='db',
+                     charset='utf8')
+    try:
+        with conn.cursor() as cursor:
+            sql = 'SELECT * FROM test_table'
+            cursor.execute(sql)
+            return cursor.fetchall()
+    finally:
+        conn.close()
+
+def print_one(idx):
+    conn = pymysql.connect(host='localhost',
+                     port=3306,
+                     user='user',
+                     passwd='passwd',
+                     db='db',
+                     charset='utf8')
+    try:
+        with conn.cursor() as cursor:
+            sql = 'SELECT * FROM test_table WHERE idx=%s'
+            cursor.execute(sql, idx)
+            for result in cursor.fetchall():
+                print(result[0], result[1], result[2])
+    finally:
+        conn.close()
+
+def insert_table(time,masktxt):
+    conn = pymysql.connect(host='localhost',
+                     port=3306,
+                     user='user',
+                     passwd='passwd',
+                     db='db',
+                     charset='utf8')
+    try:
+        with conn.cursor() as cursor:
+            sql = 'INSERT INTO test_table (datetime, no_mask) VALUES (%s, %s)'
+            cursor.execute(sql, (time, masktxt))
+            conn.commit()
+    finally:
+        conn.close()
 
 def detect_and_predict_mask(frame, faceNet, maskNet):
 	# grab the dimensions of the frame and then construct a blob
@@ -108,6 +155,7 @@ outputFrame = None
 app = Flask(__name__)
 lock = threading.Lock()
 count=0
+timestamp=datetime.datetime.now()
 
 # initialize the video stream and allow the camera sensor to warm up
 print("[INFO] starting video stream...")
@@ -120,14 +168,14 @@ def index():
 	return render_template("index.html")
 
 def screenstream(framecount):
-    global vs, outputFrame, lock, count
+    global vs, outputFrame, lock, count, timestamp
     # loop over the frames from the video stream
     while True:
         # grab the frame from the threaded video stream and resize it
         # to have a maximum width of 400 pixels
         frame = vs.read()
         frame = imutils.resize(frame, width=400)
-        timestamp = datetime.datetime.now()
+        #timestamp = datetime.datetime.now()
         cv2.putText(frame, timestamp.strftime(
 			"%A %d %B %Y %I:%M:%S%p"), (10, frame.shape[0] - 10),
 			cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 0, 255), 1)
@@ -146,8 +194,13 @@ def screenstream(framecount):
             # the bounding box and text
             label = "Mask" if mask > withoutMask else "No Mask"
             color = (0, 255, 0) if label == "Mask" else (0, 0, 255)
+			#정보를 db로 전송
             if label == "No Mask" and count%framecount==0:
-                print("No MASK")
+                print(label)
+                insert_table(timestamp, label)
+                print_all()
+                for result in print_all():
+                    print(result[0], result[1], result[2])
             count+=1
             # include the probability in the label
             label = "{}: {:.2f}%".format(label, max(mask, withoutMask) * 100)
@@ -156,7 +209,7 @@ def screenstream(framecount):
             cv2.putText(frame, label, (startX, startY - 10),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 2)
             cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)
-            #frame[startY:endY, startX:endX] = cv2.GaussianBlur(frame[startY:endY, startX:endX], 5, 5, 0)
+            #frame[startY:endY, startX:endX] = cv2.GaussianBlur(frame[startY:endY, startX:endX], (99,99), 51)
         with lock:
             outputFrame = frame.copy()
             
@@ -180,6 +233,12 @@ def generate():
 		yield(b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + 
 			bytearray(encodedImage) + b'\r\n')
 
+@app.route('/senddata')
+def senddata(): 
+	name = print_all()[len(print_all())]
+	return render_template('index.html', data=name)
+
+
 @app.route("/video_feed")
 def video_feed():
 	# return the response generated along with the specific media
@@ -190,7 +249,7 @@ def video_feed():
 # check to see if this is the main thread of execution
 if __name__ == '__main__':
 	# construct the argument parser and parse command line arguments
-	t = threading.Thread(target=screenstream, args = (100,))
+	t = threading.Thread(target=screenstream, args = (30,))
 	t.daemon = True
 	t.start()
 	app.run(host="0.0.0.0", port=8000, threaded=True)
