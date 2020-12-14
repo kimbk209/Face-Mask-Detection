@@ -7,21 +7,31 @@
     <img src="{{ url_for('video_feed') }}">
     <br>
     <h1>LOG</h1>
-    <table class="table">
-      {% for obj in data %}
-      <tr>
-        <th> {{ obj.datetime }} </th>
-        {% if obj.no_mask == "No Mask" %}
-          <td> 마스크 미착용 </td>
-        {% endif %}
-        <form action="{{url_for('delete')}}" method="post">  
-          <td style="width:10%">
-              <input type="hidden" class="form-control" name="idx" value="{{obj.idx}}">
-              <button class= "btn btn-link" type="submit">X</button>  
-          </td> {# 삭제 #}
-        </form>
-      </tr>
-      {% endfor %}
-    </table>
+    {% if data=='0' %}
+      <p>저장된 데이터가 없습니다</p>
+    {% else %}
+      <form action="{{url_for('deleteall')}}" method="post">  
+        <td style="width:10%">
+            <input type="hidden" class="form-control">
+            <button class= "btn btn-link" type="submit">전체삭제</button>  
+        </td> {# 전체삭제 #}
+      </form>
+      <table class="table">
+        {% for obj in data %}
+        <tr>
+          <th> {{ obj.datetime }} </th>
+          {% if obj.no_mask == "No Mask" %}
+            <td> 마스크 미착용 </td>
+          {% endif %}
+          <form action="{{url_for('delete')}}" method="post">  
+            <td style="width:10%">
+                <input type="hidden" class="form-control" name="idx" value="{{obj.idx}}">
+                <button class= "btn btn-link" type="submit">X</button>  
+            </td> {# 삭제 #}
+          </form>
+        </tr>
+        {% endfor %}
+      </table>
+    {% endif %}
   </body>
 </html>

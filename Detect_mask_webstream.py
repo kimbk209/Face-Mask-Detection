@@ -1,39 +1,43 @@
-# USAGE
-# python detect_mask_video.py
-# python detect_mask_video._webstreampy.py --ip 0.0.0.0 --port 8000
+# 필요한 패키지들 불러오기
+from database import db
+from sound import *
 
-# import the necessary packages
 from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 from tensorflow.keras.preprocessing.image import img_to_array
 from tensorflow.keras.models import load_model
-from imutils.video import VideoStream
 import numpy as np
 import argparse
 import imutils
 import time
 import cv2
 import os
+from imutils.video import VideoStream
+from playsound import playsound
 from flask import Response, request
 from flask import Flask
 from flask import render_template
 import threading
 import datetime
-from database import db
+
 db_class = db.Database()
+soundpath1='sound/detection.mp3'
+soundpath2='sound/init.mp3'
 
-def db_show():
-	sql = "SELECT * FROM test_table ORDER BY idx ASC;"
-	result = db_class.executeAll(sql)
-	data_list = []
-	for obj in result:
-		data_dic = {
-			'datetime' : obj['datetime'],
-			'no_mask' : obj['no_mask'],
-			'idx' : obj['idx']
-		}
-		data_list.append(data_dic)
-	return data_list
+def dbshow():
+        sql = "SELECT * FROM test_table ORDER BY idx ASC;"
+        results = db_class.executeAll(sql)
+        data_list = []
+        for obj in results:
+            data_dic = {
+                'datetime' : obj['datetime'],
+                'no_mask' : obj['no_mask'],
+                'idx' : obj['idx']
+            }
+            data_list.append(data_dic)
+        return data_list
 
+#detect and predict mask 함수
+#오픈소스에서 제공되는 faceNet과 maskNet을 이용해 얼굴과 마스크를 인식한 범위를 return한다
 def detect_and_predict_mask(frame, faceNet, maskNet):
 	# grab the dimensions of the frame and then construct a blob
 	# from it
@@ -113,7 +117,6 @@ prototxtPath = os.path.sep.join([args["face"], "deploy.prototxt"])
 weightsPath = os.path.sep.join([args["face"],
 	"res10_300x300_ssd_iter_140000.caffemodel"])
 faceNet = cv2.dnn.readNet(prototxtPath, weightsPath)
-
 # load the face mask detector model from disk
 print("[INFO] loading face mask detector model...")
 maskNet = load_model(args["model"])
@@ -128,12 +131,21 @@ timestamp=datetime.datetime.now()
 print("[INFO] starting video stream...")
 vs = VideoStream(src=0).start()
 time.sleep(2.0)
+playsound(soundpath2, block=False)
 
 @app.route("/")
 def index():
+	#저장된 데이터가 없을 시 0을 전송한다
+	if len(dbshow())==0:
+		senddata='0' 
+	#저장된 데이터가 있을 시 데이터베이스에 저장된 데이터들을 전송한다
+	else:
+		senddata=dbshow()
 	# return the rendered template
-	return render_template("index.html", data = db_show())
+	return render_template("index.html", data = senddata)
 
+#screenstream함수
+#frame by frame으로 예측한 결과를 화면에 opencv를 이용해 보여준다
 def screenstream(framecount):
     global vs, outputFrame, lock, count, timestamp
     # loop over the frames from the video stream
@@ -167,9 +179,11 @@ def screenstream(framecount):
                 sql = "INSERT INTO test_table (datetime, no_mask) VALUES (%s, %s);"
                 db_class.execute(sql, (timestamp, label))
                 db_class.commit()
+                playsound(soundpath1, block=False)
                 print('commit')
 			#프레임 당 카운트 증가
             count+=1
+			
             # include the probability in the label
             label = "{}: {:.2f}%".format(label, max(mask, withoutMask) * 100)
             # display the label and bounding box rectangle on the output
@@ -177,10 +191,13 @@ def screenstream(framecount):
             cv2.putText(frame, label, (startX, startY - 10),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 2)
             cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)
-            #frame[startY:endY, startX:endX] = cv2.blur(frame[startY:endY, startX:endX], (10,10))
+            frame[startY:endY, startX:endX] = cv2.blur(frame[startY:endY, startX:endX], (10,10), anchor=(-1, -1), borderType=cv2.BORDER_DEFAULT)
+			#cv2.blur(src, (9, 9), anchor=(-1, -1), borderType=cv2.BORDER_DEFAULT)
         with lock:
             outputFrame = frame.copy()
-            
+
+#generate함수
+#flask 상에 동영상으로 보여주기위한 output stream을 만든다
 def generate():
 	# grab global references to the output frame and lock variables
 	global outputFrame, lock
@@ -201,6 +218,7 @@ def generate():
 		yield(b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + 
 			bytearray(encodedImage) + b'\r\n')
 
+#한 개의 데이터를 삭제
 @app.route('/delete', methods=['post'])
 def delete() :
 	idx = request.values.get('idx')
@@ -214,6 +232,20 @@ def delete() :
 			</script>
 		''' 
 
+#모든 데이터를 삭제
+@app.route('/deleteall', methods=['post'])
+def deleteall() :
+	sql = 'DELETE from test_table'
+	db_class.execute(sql)
+	db_class.commit()
+	return '''
+			<script>
+				alert("모든 데이터가 삭제되었습니다")
+				location.href="."
+			</script>
+		''' 
+
+#웹페이지에서 동영상을 보여주기 위한 함수
 @app.route("/video_feed")
 def video_feed():
 	# return the response generated along with the specific media
@@ -224,7 +256,7 @@ def video_feed():
 # check to see if this is the main thread of execution
 if __name__ == '__main__':
 	# construct the argument parser and parse command line arguments
-	t = threading.Thread(target=screenstream, args = (70,))
+	t = threading.Thread(target=screenstream, args = (60,))
 	t.daemon = True
 	t.start()
 	app.run(host="0.0.0.0", port=8000, threaded=True)

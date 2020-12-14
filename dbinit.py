@@ -7,7 +7,7 @@ conn = pymysql.connect(host='localhost',
  
 try:
     with conn.cursor() as cursor:
-        sql = 'CREATE DATABASE db'
+        sql = 'CREATE DATABASE db;'
         cursor.execute(sql)
     conn.commit()
 finally:

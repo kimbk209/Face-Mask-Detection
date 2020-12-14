@@ -1,5 +1,6 @@
 import pymysql.cursors
 
+#database 클래스와 접근하기위한 쿼리문에 관련된 함수들이 모여있는 파일입니다 
 class Database():
     def __init__(self):
         self.db = pymysql.connect(host='localhost',
