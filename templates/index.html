@@ -6,11 +6,20 @@
     <h1>Pi-MASK Video Surveillance</h1>
     <img src="{{ url_for('video_feed') }}">
     <br>
+    <h1>LOG</h1>
     <table class="table">
       {% for obj in data %}
       <tr>
         <th> {{ obj.datetime }} </th>
-        <td> {{ obj.no_mask }} </td>
+        {% if obj.no_mask == "No Mask" %}
+          <td> 마스크 미착용 </td>
+        {% endif %}
+        <form action="{{url_for('delete')}}" method="post">  
+          <td style="width:10%">
+              <input type="hidden" class="form-control" name="idx" value="{{obj.idx}}">
+              <button class= "btn btn-link" type="submit">X</button>  
+          </td> {# 삭제 #}
+        </form>
       </tr>
       {% endfor %}
     </table>

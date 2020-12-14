@@ -13,7 +13,7 @@ import imutils
 import time
 import cv2
 import os
-from flask import Response
+from flask import Response, request
 from flask import Flask
 from flask import render_template
 import threading
@@ -22,13 +22,14 @@ from database import db
 db_class = db.Database()
 
 def db_show():
-	sql = "SELECT datetime, no_mask FROM test_table ORDER BY idx DESC;"
+	sql = "SELECT * FROM test_table ORDER BY idx ASC;"
 	result = db_class.executeAll(sql)
 	data_list = []
 	for obj in result:
 		data_dic = {
 			'datetime' : obj['datetime'],
-			'no_mask' : obj['no_mask']
+			'no_mask' : obj['no_mask'],
+			'idx' : obj['idx']
 		}
 		data_list.append(data_dic)
 	return data_list
@@ -200,6 +201,19 @@ def generate():
 		yield(b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + 
 			bytearray(encodedImage) + b'\r\n')
 
+@app.route('/delete', methods=['post'])
+def delete() :
+	idx = request.values.get('idx')
+	sql = 'DELETE from test_table where idx=%s'
+	db_class.execute(sql, idx)
+	db_class.commit()
+	return '''
+			<script>
+				alert("삭제되었습니다")
+				location.href="."
+			</script>
+		''' 
+
 @app.route("/video_feed")
 def video_feed():
 	# return the response generated along with the specific media
@@ -210,7 +224,7 @@ def video_feed():
 # check to see if this is the main thread of execution
 if __name__ == '__main__':
 	# construct the argument parser and parse command line arguments
-	t = threading.Thread(target=screenstream, args = (50,))
+	t = threading.Thread(target=screenstream, args = (70,))
 	t.daemon = True
 	t.start()
 	app.run(host="0.0.0.0", port=8000, threaded=True)
